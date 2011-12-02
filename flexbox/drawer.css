@@ -9,39 +9,56 @@ ul, li {
 }
 
 .master {
-
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
     header {
-        display: block;
         width: 100%;
         top: 0px;
         left: 0px;
         background: black;
         color: white;
         z-index: 1;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-box-flex: 0;
         height: 8.4em;
     }
         .brand {
+            -webkit-box-flex: 1;
+            height: 2.2em;
             font-size: 1.6em;
             font-weight: bold;
             padding: .75em;
         }
         .verticals {
             display: block;
+            -webkit-box-flex: 1;
             background: lightgray;
+            width: 100%;
             text-align: center;
         }
             .verticals li {
                 color: black;
                 display: inline-block;
+                height: 2.2em;
                 font-size: 1.6em;
                 padding: .75em 1.5em .75em 1.5em;
             }
     .main {
         display: block;
+        -webkit-box-flex: 1;
         overflow: hidden;
         position: relative;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
     }
+        .scrolling.vertical {
+            overflow-x: hidden;
+            overflow-y: scroll;
+            -webkit-box-flex: 1;            
+        }
     .drawer {
         position: absolute;
         top: 0px;
@@ -49,8 +66,8 @@ ul, li {
         color: white;
         display: inline-block;
         width: 15em;
-        height: 100%;
         border-right: 2em solid gray;
+        height: 100%;
         -webkit-transition: -webkit-transform ease-out .25s;
     }
         .drawer-closed .drawer {
