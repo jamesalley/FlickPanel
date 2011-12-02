@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 	<meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" /-->
 
     <title>Drawer</title>
     <link rel="stylesheet" type="text/css" href="drawer.css" />
 </head>
-<body>
+<body class="uninited">
 <!--div class="iPadViewportMarker-landscape"></div-->
 <div class="master">
 <header>
@@ -19,8 +19,6 @@
             <li>Images</li>
             <li>Video</li>
             <li>Local</li>
-            <li>Shopping</li>
-            <li>Apps</li>
             <li>Blogs</li>
             <li>More</li>
         </ul>
@@ -72,6 +70,7 @@ YUI().use('ratioRight', function (Y) {
         master.setStyle('font-size',newFontSize);
     
     });
+    Y.one('body').removeClass('uninited');
 });
 </script>
 </body>
