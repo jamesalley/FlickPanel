@@ -51,7 +51,8 @@ ul, li {
         display: inline-block;
         width: 15em;
         height: 100%;
-        border-right: 2em solid gray;
+        overflow-y: scroll;
+        border-right: 0em solid gray;
         -webkit-transition: -webkit-transform ease-out .25s;
     }
         .drawer-closed .drawer {
