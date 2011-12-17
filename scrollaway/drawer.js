@@ -33,7 +33,7 @@ YUI().use('node','event','event-outside','event-flick', function (Y) {
 
     this._drawerStop = function() {
         //Y.log('win is scrolling');
-        var yVal = Y.one('header').get('offsetHeight'),
+        var yVal = drawer.getY(),
             win = Y.config.win;
         // if the window scrolls past the height of the header...
         if (win.scrollY >= yVal) {
