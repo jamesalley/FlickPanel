@@ -8,86 +8,93 @@ ul, li {
     display: block;
 }
 
-.master {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+.uninited .master {
+    display: none;
 }
     header {
+        display: block;
         width: 100%;
         top: 0px;
         left: 0px;
         background: black;
         color: white;
-        z-index: 1;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-box-flex: 0;
+        z-index: 2;
         height: 8.4em;
     }
         .brand {
-            -webkit-box-flex: 1;
-            height: 2.2em;
             font-size: 1.6em;
             font-weight: bold;
             padding: .75em;
         }
         .verticals {
             display: block;
-            -webkit-box-flex: 1;
             background: lightgray;
-            width: 100%;
             text-align: center;
         }
             .verticals li {
                 color: black;
                 display: inline-block;
-                height: 2.2em;
                 font-size: 1.6em;
                 padding: .75em 1.5em .75em 1.5em;
             }
     .main {
         display: block;
-        -webkit-box-flex: 1;
         overflow: hidden;
         position: relative;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
     }
-        .scrolling.vertical {
-            overflow-x: hidden;
-            overflow-y: scroll;
-            -webkit-box-flex: 1;            
-        }
-    .drawer {
+    .flickPanel {
         position: absolute;
+        z-index: 1;
         top: 0px;
         background: darkgray;
         color: white;
         display: inline-block;
         width: 15em;
-        border-right: 2em solid gray;
         height: 100%;
+        border-right: 0em solid gray;
         -webkit-transition: -webkit-transform ease-out .25s;
     }
-        .drawer-closed .drawer {
+        .flickPanel-closed .flickPanel {
             -webkit-transform: translate3d(-15em,0,0);
         }
-        .drawer li {
+        .flickPanel li {
             padding: 1em;
             padding-left: 1.5em;
             border-top: 1px solid lightgray;
             border-bottom: 1px solid gray;
             font-size: 1.6em;
         }
-            .drawer li:first-child {
+            .flickPanel li:first-child {
                 border-top: 0;
             }
     
     #web {
         width: 52.4em;
-        margin: 0 auto 0 15em;
+        max-width: 524px;
+        margin: 0 auto;
+        -webkit-transition: -webkit-transform ease-out .25s;
+        -webkit-transform: translate3d(7.5em,0,0);
+        border-left: 1px dotted gray;
+        border-right: 1px dotted gray;
     }
+        .flickPanel-closed #web {
+            -webkit-transform: translate3d(0,0,0);
+        }
         #web .res {
             font-size: 1.8em;
         }
+
+.pullTab {
+    position: absolute;
+    top: 250px;
+    right: 0px;
+    width: 22px;
+    height: 44px;
+    background: black;
+    font-size: 1px;
+    color: black;
+    opacity: .4;
+}
+.flickPanel-closed .pullTab {
+    right: -22px;
+}

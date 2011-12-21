@@ -4,8 +4,8 @@
 	<meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
-    <title>Drawer</title>
-    <link rel="stylesheet" type="text/css" href="drawer.css" />
+    <title>FlickPanel</title>
+    <link rel="stylesheet" type="text/css" href="flickPanel.css" />
 </head>
 <body class="uninited">
 <!--div class="iPadViewportMarker-landscape"></div-->
@@ -23,8 +23,8 @@
         </ul>
     </div>
 </header>
-<div class="main">
-<div class="drawer">
+<div class="main" id="main">
+<div class="flickPanel">
     <ul>
         <li>Foo</li>
         <li>Bar</li>
@@ -58,9 +58,10 @@
 </div>
 </div>
 <script src="http://yui.yahooapis.com/3.4.1/build/yui/yui-min.js"></script>
-<script type="text/javascript" src="../../RatioRight/ratioRight.js"></script>
+<script type="text/javascript" src="../RatioRight/gh-pages/ratioRight.js"></script>
+<script type="text/javascript" src="flickPanel.js"></script>
 <script>
-YUI().use('ratioRight', function (Y) {
+YUI().use('ratioRight','flickPanel', function (Y) {
     
     Y.one('.master').plug(Y.RatioRightPlugin,{
         'referenceWidth': 1024,
@@ -68,26 +69,13 @@ YUI().use('ratioRight', function (Y) {
         'locked': false,
         'fixedHeight': false
     });
-        
-    /*
-    Y.one('#font-increase').on('click',function(){
-        var master = Y.one('.master'),
-            oldFontSize = parseInt(master.getStyle('font-size')),
-            newFontSize = (oldFontSize + 2) + 'px';
-        master.setStyle('font-size',newFontSize);
-    
-    });
-    Y.one('#font-decrease').on('click',function(){
-        var master = Y.one('.master'),
-            oldFontSize = parseInt(master.getStyle('font-size')),
-            newFontSize = (oldFontSize - 2) + 'px';
-        master.setStyle('font-size',newFontSize);
-    
-    });
-    */
     Y.one('body').removeClass('uninited');
+    Y.one('body').plug(Y.FlickPanelPlugin,{
+            flickPanel: Y.one('.flickPanel'),
+            main: Y.one('#web'),
+    });
+    
 });
 </script>
-<script type="text/javascript" src="drawer.js"></script>
 </body>
 </html>
