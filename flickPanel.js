@@ -24,7 +24,7 @@ YUI.add('flickPanel', function(Y) {
             this.mainNode = config.main;
             this.yVal = this.flickPanelNode.getY();
             
-            this.flickPanelNode.append('<div class="pullTab">Pull-tab</div>');
+            this.flickPanelNode.append('<div class="pullTab"><div class="gripper">Pull-tab</div></div>');
                                     
             this._root.on('flick', this._onFlick, '', this);
             
@@ -32,7 +32,13 @@ YUI.add('flickPanel', function(Y) {
                 e.halt();
                 this._toggle();
             }, this);
-            
+
+            var dd = new Y.DD.Drag({
+                node: Y.one('.gripper'),
+            }).plug(Y.Plugin.DDConstrained, {
+                constrain2node: Y.one('.pullTab')
+            });            
+        
             Y.on('touchmove',this._flickPanelStop, Y.config.win, this);
             Y.on('scroll',this._flickPanelStop, Y.config.win, this);
 
@@ -113,6 +119,6 @@ YUI.add('flickPanel', function(Y) {
     Y.FlickPanelPlugin = FlickPanelPlugin;
     
 }, '1.0.0', {
-    requires: ['node', 'event', 'event-flick', 'plugin']
+    requires: ['node', 'event', 'event-flick', 'plugin', 'dd-drag', 'dd-constrain']
 });
 
