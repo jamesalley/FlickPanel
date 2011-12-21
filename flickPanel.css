@@ -41,6 +41,7 @@ ul, li {
         display: block;
         overflow: hidden;
         position: relative;
+        -webkit-user-select: none;
     }
     .flickPanel {
         position: absolute;
@@ -55,6 +56,7 @@ ul, li {
         -webkit-transition: -webkit-transform ease-out .25s;
     }
         .flickPanel-closed .flickPanel {
+            -webkit-transition: -webkit-transform ease-out .25s;
             -webkit-transform: translate3d(-15em,0,0);
         }
         .flickPanel li {
@@ -76,6 +78,7 @@ ul, li {
         -webkit-transform: translate3d(7.5em,0,0);
         border-left: 1px dotted gray;
         border-right: 1px dotted gray;
+        -webkit-user-select: text;
     }
         .flickPanel-closed #web {
             -webkit-transform: translate3d(0,0,0);
@@ -88,20 +91,14 @@ ul, li {
     position: absolute;
     top: 250px;
     right: 0px;
-    width: 100%;
+    width: 22px;
     height: 44px;
     background: black;
     font-size: 1px;
     color: black;
     opacity: .4;
+    -webkit-user-select: none;
 }
-.gripper {
-    position: absolute;
-    width: 22px;
-    height: 44px;
-    background: red;
-    right: 0px;
-}
-.flickPanel-closed .gripper {
+.flickPanel-closed .pullTab {
     right: -22px;
 }

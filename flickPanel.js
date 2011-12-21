@@ -25,26 +25,38 @@ YUI.add('flickPanel', function(Y) {
             this.yVal = this.flickPanelNode.getY();
             
             this.flickPanelNode.append('<div class="pullTab"><div class="gripper">Pull-tab</div></div>');
+            this.pullTab = this._root.one('.pullTab');
                                     
             this._root.on('flick', this._onFlick, '', this);
-            
-            this._root.one('.pullTab').on('click',function(e){
-                e.halt();
-                this._toggle();
-            }, this);
 
-            var dd = new Y.DD.Drag({
-                node: Y.one('.gripper'),
-            }).plug(Y.Plugin.DDConstrained, {
-                constrain2node: Y.one('.pullTab')
-            });            
-        
+            //this.pullTab.on('click',this._toggle,this,this);
+
+            // flickPanel tracks along with input
+            // also triggers toggle at end of input, so a click will also initiate toggle
+            this.pullTab.on('gesturemovestart',this._track,this,this);
+            this.pullTab.on('gesturemove',this._track,this,this);
+            this.pullTab.on('gesturemoveend',function(e){
+                e.halt();
+                //this._toggle();
+            },this,this);
+            
+            // flickPanel may change positioning model as page scrolls
             Y.on('touchmove',this._flickPanelStop, Y.config.win, this);
             Y.on('scroll',this._flickPanelStop, Y.config.win, this);
 
         },
         
         destructor: function() {},
+        
+        _track: function(e) {
+            //console.log(this.flickPanelNode.get('offsetWidth'));
+            //console.log(e.pageX);
+            this._toggle(true);
+            var xPos = e.pageX - this.flickPanelNode.get('offsetWidth') + 11;
+            if (xPos < 1) {
+                this.flickPanelNode.setStyle('left',xPos+'px');
+            }
+        },
 
         _onFlick: function(e) {
             var minDistance = 20,
@@ -98,6 +110,8 @@ YUI.add('flickPanel', function(Y) {
                 this._root.addClass(FlickPanelPlugin.CLOSED_CLASS);
             }
             
+            this.flickPanelNode.setStyle('left','');
+            
             // To do: tap into this custom event to record state, if desired
             Y.fire('setCookie', {}, {'show': +show}); // bool -> int
         },
@@ -119,6 +133,6 @@ YUI.add('flickPanel', function(Y) {
     Y.FlickPanelPlugin = FlickPanelPlugin;
     
 }, '1.0.0', {
-    requires: ['node', 'event', 'event-flick', 'plugin', 'dd-drag', 'dd-constrain']
+    requires: ['node', 'event', 'event-flick', 'event-move', 'plugin']
 });
 
