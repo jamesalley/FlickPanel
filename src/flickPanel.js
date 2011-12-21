@@ -35,10 +35,7 @@ YUI.add('flickPanel', function(Y) {
             // also triggers toggle at end of input, so a click will also initiate toggle
             this.pullTab.on('gesturemovestart',this._track,this,this);
             this.pullTab.on('gesturemove',this._track,this,this);
-            this.pullTab.on('gesturemoveend',function(e){
-                e.halt();
-                //this._toggle();
-            },this,this);
+            this.pullTab.on('gesturemoveend',this._gestureMoveEnd,this,this);
             
             // flickPanel may change positioning model as page scrolls
             Y.on('touchmove',this._flickPanelStop, Y.config.win, this);
@@ -47,6 +44,28 @@ YUI.add('flickPanel', function(Y) {
         },
         
         destructor: function() {},
+        
+        _gestureMoveEnd: function(e) {
+            e.halt();
+            var flickPanelWidth = this.flickPanelNode.get('offsetWidth'),
+                outerThreshold = Math.round(flickPanelWidth - flickPanelWidth/3),
+                innerThreshold = Math.round(flickPanelWidth/3);
+            console.log('gestureMoveEnd: inner-actual-outer: ' + innerThreshold + '-' + e.pageX + '-' + outerThreshold);
+            if (e.pageX > outerThreshold) {
+                // didn't move past threshold, so let's snap back to open
+                console.log('snap back to open!');
+                this.flickPanelNode.setStyle('left','');
+                this._toggle(true);
+            }
+            else if (e.pageX < innerThreshold) {
+                console.log('snap back to closed!');
+            }
+            // this approach isn't really working. I'll have to do away with the CSS-based
+            // sliding of the main content area and instead move it pixel-by-pixel
+            // with the flickPanel. That means jettisoning the onFlick handler.
+            // but if I do that, I need to make the tab always visible, won't be able to 
+            // support app-like swiping from the bezel margin.
+        },
         
         _track: function(e) {
             //console.log(this.flickPanelNode.get('offsetWidth'));
@@ -59,6 +78,7 @@ YUI.add('flickPanel', function(Y) {
         },
 
         _onFlick: function(e) {
+            console.log('onflick');
             var minDistance = 20,
                 minVelocity = 0.1,
                 preventDefault = false,
