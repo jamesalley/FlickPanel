@@ -10,6 +10,7 @@ YUI.add('flickPanel', function(Y) {
 
     FlickPanelPlugin.NAME = 'FlickPanelPlugin';
     FlickPanelPlugin.NS = 'FlickPanel';
+    FlickPanelPlugin.OPEN_CLASS = 'flickPanel-open';
     FlickPanelPlugin.CLOSED_CLASS = 'flickPanel-closed';
     FlickPanelPlugin.ATTRS = {
     };
@@ -18,6 +19,7 @@ YUI.add('flickPanel', function(Y) {
         initializer: function(config) {
             // typically the body element
             this._root = (config.root) ? config.root : this.get('host');
+            this.animateMain = (config.animateMain === false) ? config.animateMain : true;
             // typically a node representing a sidebar or drawer
             this.flickPanelNode = config.flickPanel;
             // typically a node representing main content pushed aside by flickPanel
@@ -36,7 +38,8 @@ YUI.add('flickPanel', function(Y) {
             this.pullTab.on('gesturemoveend',this._stopTracking,this,this);
             
             // also listen for a page flick
-            this._root.on('flick', this._onFlick, '', this);
+            Y.log(this.animateMain);
+            if (this.animateMain) this._root.on('flick', this._onFlick, '', this);
             
             // slide into adjusted position on orientation change
             this.WINDOW_CHANGE_EVENT = ('onorientationchange' in Y.config.win) ? 'orientationchange':'resize';
@@ -56,7 +59,7 @@ YUI.add('flickPanel', function(Y) {
              *  which necessitate repositioning the flickPanel.
              *  If it's open, pop it to correct open position, otherwise close.
              */
-            if (this._root.hasClass('yui3-flickPanel-open')) {
+            if (this._root.hasClass(FlickPanelPlugin.OPEN_CLASS)) {
                 this._slidePanels(this.flickPanelNode.get('offsetWidth'),false);
             }
             else {
@@ -104,7 +107,7 @@ YUI.add('flickPanel', function(Y) {
         
         _slidePanels: function(xPos,useTransition) {
             this.flickPanelNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
-            this.mainNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
+            if (this.animateMain) this.mainNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
             if (useTransition) {
                 this.flickPanelNode.setStyle('-webkit-transition', '-webkit-transform ease-out .25s');
                 this.mainNode.setStyle('-webkit-transition', '-webkit-transform ease-out .25s');
@@ -144,21 +147,22 @@ YUI.add('flickPanel', function(Y) {
             this.xPos = e.pageX;
             var minThreshold = Math.round(flickPanelWidth/3),
                 maxThreshold = flickPanelWidth-22;
+            // TO DO: clean up this case logic
             if (this.trackingDirection === 'opening' && this.xPos > minThreshold) {
                 this._slidePanels(flickPanelWidth,true);
-                this._root.replaceClass('yui3-flickPanel-closed','yui3-flickPanel-open');
+                this._root.replaceClass(FlickPanelPlugin.CLOSED_CLASS,FlickPanelPlugin.OPEN_CLASS);
             }
             else if (this.trackingDirection === 'opening' && this.xPos < minThreshold) {
                 this._slidePanels(0,true);
-                this._root.replaceClass('yui3-flickPanel-open','yui3-flickPanel-closed');
+                this._root.replaceClass(FlickPanelPlugin.OPEN_CLASS,FlickPanelPlugin.CLOSED_CLASS);
             }
             else if (this.trackingDirection === 'closing' && this.xPos < maxThreshold) {
                 this._slidePanels(0,true);
-                this._root.replaceClass('yui3-flickPanel-open','yui3-flickPanel-closed');
+                this._root.replaceClass(FlickPanelPlugin.OPEN_CLASS,FlickPanelPlugin.CLOSED_CLASS);
             }
             else {
                 this._slidePanels(flickPanelWidth,true);
-                this._root.replaceClass('yui3-flickPanel-closed','yui3-flickPanel-open');
+                this._root.replaceClass(FlickPanelPlugin.CLOSED_CLASS,FlickPanelPlugin.OPEN_CLASS);
             }
         },
         
