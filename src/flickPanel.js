@@ -23,22 +23,24 @@ YUI.add('flickPanel', function(Y) {
             // typically a node representing main content pushed aside by flickPanel
             this.mainNode = config.main;
             this.yVal = this.flickPanelNode.getY();
+            this.xPos = 0;
+            this.trackingDirection = null;
             
             this.flickPanelNode.append('<div class="pullTab"><div class="gripper">Pull-tab</div></div>');
             this.pullTab = this._root.one('.pullTab');
-                                    
-            this._root.on('flick', this._onFlick, '', this);
-
-            //this.pullTab.on('click',this._toggle,this,this);
 
             // flickPanel tracks along with input
             // also triggers toggle at end of input, so a click will also initiate toggle
             this.pullTab.on('gesturemovestart',this._track,this,this);
             this.pullTab.on('gesturemove',this._track,this,this);
-            this.pullTab.on('gesturemoveend',function(e){
-                e.halt();
-                //this._toggle();
-            },this,this);
+            this.pullTab.on('gesturemoveend',this._stopTracking,this,this);
+            
+            // also listen for a page flick
+            this._root.on('flick', this._onFlick, '', this);
+            
+            // slide into adjusted position on orientation change
+            this.WINDOW_CHANGE_EVENT = ('onorientationchange' in Y.config.win) ? 'orientationchange':'resize';
+            Y.on(this.WINDOW_CHANGE_EVENT,this._windowChange, Y.config.win, this);
             
             // flickPanel may change positioning model as page scrolls
             Y.on('touchmove',this._flickPanelStop, Y.config.win, this);
@@ -48,16 +50,20 @@ YUI.add('flickPanel', function(Y) {
         
         destructor: function() {},
         
-        _track: function(e) {
-            //console.log(this.flickPanelNode.get('offsetWidth'));
-            //console.log(e.pageX);
-            this._toggle(true);
-            var xPos = e.pageX - this.flickPanelNode.get('offsetWidth') + 11;
-            if (xPos < 1) {
-                this.flickPanelNode.setStyle('left',xPos+'px');
+        _windowChange: function() {
+            /** 
+             *  Window change can cause dimension and positioning changes
+             *  which necessitate repositioning the flickPanel.
+             *  If it's open, pop it to correct open position, otherwise close.
+             */
+            if (this._root.hasClass('yui3-flickPanel-open')) {
+                this._slidePanels(this.flickPanelNode.get('offsetWidth'),false);
+            }
+            else {
+                this._slidePanels(0,false);
             }
         },
-
+        
         _onFlick: function(e) {
             var minDistance = 20,
                 minVelocity = 0.1,
@@ -65,8 +71,7 @@ YUI.add('flickPanel', function(Y) {
                 axis = "x";
 
             if (!e.flick.velocity) {return;}    // Just a tap
-
-            // console.log(e);
+            
             // get the raw event data in order to determine angle of flick
             // event-flick only determines angles >45deg, dividing them into 
             // "x" and "y" axes
@@ -90,30 +95,71 @@ YUI.add('flickPanel', function(Y) {
             */
 
             if (flickAngle <= 15) {
-                this._toggle(true);
+                this._slidePanels(this.flickPanelNode.get('offsetWidth'),true);
             } 
             else if (flickAngle >= 165 && flickAngle <=180) {
-                this._toggle(false);
+                this._slidePanels(0,true);
             }
         },
-
-        // Toggles showing the flickPanel. Optionally accepts an explicit show value
-        _toggle: function(show) {
-            if (typeof show == 'undefined') {
-                show = this._root.hasClass(FlickPanelPlugin.CLOSED_CLASS);
+        
+        _slidePanels: function(xPos,useTransition) {
+            this.flickPanelNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
+            this.mainNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
+            if (useTransition) {
+                this.flickPanelNode.setStyle('-webkit-transition', '-webkit-transform ease-out .25s');
+                this.mainNode.setStyle('-webkit-transition', '-webkit-transform ease-out .25s');
+                Y.later(300, this, function(){
+                    this.flickPanelNode.setStyle('-webkit-transition', '');
+                    this.mainNode.setStyle('-webkit-transition', '');
+                }, null);
             }
-
-            if (show) {
-                this._root.removeClass(FlickPanelPlugin.CLOSED_CLASS);
+        },
+        
+        _track: function(e) {
+            //Y.log(e);
+            if (this.xPos < e.pageX) {
+                this.trackingDirection = 'opening';
             }
             else {
-                this._root.addClass(FlickPanelPlugin.CLOSED_CLASS);
+                this.trackingDirection = 'closing';
             }
+            this.xPos = e.pageX;
+            if (this.flickPanelNode.get('offsetWidth') > this.xPos && this.xPos > 0) {
+                this._slidePanels(this.xPos);
+            }
+        },
+        
+        _stopTracking: function(e) {
+            //e.halt();
+            //Y.log('stop tracking');
+            //Y.log(e);
             
-            this.flickPanelNode.setStyle('left','');
-            
-            // To do: tap into this custom event to record state, if desired
-            Y.fire('setCookie', {}, {'show': +show}); // bool -> int
+            /**
+             *  What direction were we tracking in? It matters. If we're dragging to 
+             *  the right, we want to open by default if we're past the minThreshold. 
+             *  If we're swiping to the left, we want to close by default if we're 
+             *  past the maxThreshold.
+             */
+            var flickPanelWidth = this.flickPanelNode.get('offsetWidth');
+            this.xPos = e.pageX;
+            var minThreshold = Math.round(flickPanelWidth/3),
+                maxThreshold = flickPanelWidth-22;
+            if (this.trackingDirection === 'opening' && this.xPos > minThreshold) {
+                this._slidePanels(flickPanelWidth,true);
+                this._root.replaceClass('yui3-flickPanel-closed','yui3-flickPanel-open');
+            }
+            else if (this.trackingDirection === 'opening' && this.xPos < minThreshold) {
+                this._slidePanels(0,true);
+                this._root.replaceClass('yui3-flickPanel-open','yui3-flickPanel-closed');
+            }
+            else if (this.trackingDirection === 'closing' && this.xPos < maxThreshold) {
+                this._slidePanels(0,true);
+                this._root.replaceClass('yui3-flickPanel-open','yui3-flickPanel-closed');
+            }
+            else {
+                this._slidePanels(flickPanelWidth,true);
+                this._root.replaceClass('yui3-flickPanel-closed','yui3-flickPanel-open');
+            }
         },
         
         _flickPanelStop: function() {
