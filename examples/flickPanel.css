@@ -98,4 +98,5 @@ ul, li {
         background: black;
         font-size: 1px;
         color: black;
+        cursor: pointer;
     }
