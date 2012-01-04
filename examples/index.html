@@ -7,7 +7,7 @@
     <title>FlickPanel</title>
     <link rel="stylesheet" type="text/css" href="flickPanel.css" />
 </head>
-<body class="uninited">
+<body class="uninited flickPanel-closed">
 <!--div class="iPadViewportMarker-landscape"></div-->
 <div class="master">
 <header>
@@ -73,6 +73,7 @@ YUI().use('ratioRight','flickPanel', function (Y) {
     Y.one('body').plug(Y.FlickPanelPlugin,{
             flickPanel: Y.one('.flickPanel'),
             main: Y.one('#web'),
+            animateMain: true
     });
     
 });

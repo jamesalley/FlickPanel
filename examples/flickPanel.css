@@ -53,12 +53,8 @@ ul, li {
         width: 15em;
         height: 100%;
         border-right: 0em solid gray;
-        -webkit-transition: -webkit-transform ease-out .25s;
+        left: -15em;
     }
-        .flickPanel-closed .flickPanel {
-            -webkit-transition: -webkit-transform ease-out .25s;
-            -webkit-transform: translate3d(-15em,0,0);
-        }
         .flickPanel li {
             padding: 1em;
             padding-left: 1.5em;
@@ -74,31 +70,33 @@ ul, li {
         width: 52.4em;
         max-width: 524px;
         margin: 0 auto;
-        -webkit-transition: -webkit-transform ease-out .25s;
-        -webkit-transform: translate3d(7.5em,0,0);
         border-left: 1px dotted gray;
         border-right: 1px dotted gray;
         -webkit-user-select: text;
     }
-        .flickPanel-closed #web {
-            -webkit-transform: translate3d(0,0,0);
-        }
         #web .res {
             font-size: 1.8em;
         }
 
 .pullTab {
     position: absolute;
-    top: 250px;
-    right: 0px;
+    top: 0px;
+    right: -22px;
     width: 22px;
-    height: 44px;
-    background: black;
+    height: 100%;
+    background: gray;
     font-size: 1px;
     color: black;
-    opacity: .4;
+    opacity: .1;
     -webkit-user-select: none;
 }
-.flickPanel-closed .pullTab {
-    right: -22px;
-}
+    .pullTab .gripper {
+        position: absolute;
+        top: 180px;
+        width: 22px;
+        height: 44px;
+        background: black;
+        font-size: 1px;
+        color: black;
+        cursor: pointer;
+    }
