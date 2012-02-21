@@ -10,14 +10,13 @@ YUI.add('flickPanel', function (Y) {
 
     FlickPanelPlugin.NAME = 'FlickPanelPlugin';
     FlickPanelPlugin.NS = 'FlickPanel';
-    FlickPanelPlugin.OPEN_CLASS = 'flickPanel-open';
-    FlickPanelPlugin.CLOSED_CLASS = 'flickPanel-closed';
     FlickPanelPlugin.PULL_TAB_MARKUP = '<div class="pullTab"><div class="gripper">Pull-tab</div></div>';
     FlickPanelPlugin.ATTRS = {
     };
 
     Y.extend(FlickPanelPlugin, Y.Plugin.Base, {
         initializer: function (config) {
+            this.isOpen = false;
             this.deviceSupportsTouch = ("ontouchstart" in Y.config.win && !Y.UA.chrome);
             // typically the body element
             this.root = config.root || this.get('host');
@@ -39,9 +38,6 @@ YUI.add('flickPanel', function (Y) {
                 this.pullTab.on('gesturemove', this._track, this, this);
                 this.pullTab.on('gesturemoveend', this._stopTracking, this, this);
             }
-            else {
-                this.pullTab.on('click', this._toggle, this, this);
-            }
             
             // also listen for a page flick
             if (this.animateMain) {
@@ -58,7 +54,11 @@ YUI.add('flickPanel', function (Y) {
 
         },
 
-        destructor: function () {},
+        destructor: function () {
+            this.pullTab.remove();
+            this._closePanel();
+            this.root.detach('flick', this._onFlick);
+        },
 
         _windowChange: function () {
             /** 
@@ -66,24 +66,29 @@ YUI.add('flickPanel', function (Y) {
              *  which necessitate repositioning the flickPanel.
              *  If it's open, pop it to correct open position, otherwise close.
              */
-            if (this.root.hasClass(FlickPanelPlugin.OPEN_CLASS)) {
+            if (this.isOpen) {
                 this._slidePanels(this.flickPanelNode.get('offsetWidth'),false);
             }
             else {
-                this._slidePanels(0,false);
+                this._slidePanels(0, false);
             }
         },
 
         _onFlick: function (e) {
+            // Don't respond to flick events percolating through certain components
+            // TO DO: pull this out and put it into conf so that FlickPanel 
+            // remains clean and generalized
+            if (e.target.ancestor('.yui3-scrollview-horiz')) return;
+        
             // get the raw event data in order to determine angle of flick
             // event-flick only determines angles >45deg, dividing them into 
             // "x" and "y" axes
             var flick = e.flick,
                 minDistance = 20,
-                minVelocity = 0.8,
+                minVelocity = 0.1,
                 preventDefault = false,
                 axis = 'x',
-                yMovement = (e._event.changedTouches) ? Math.abs(e._event.changedTouches[0].pageY - flick.start.pageY) : Math.abs(e.pageY - flick.start.pageY);
+                yMovement = (e._event.changedTouches) ? Math.abs(e._event.changedTouches[0].clientY - flick.start.clientY) : Math.abs(e.pageY - flick.start.pageY);
             if (Math.abs(flick.distance) < minDistance || Math.abs(flick.velocity) < minVelocity || flick.axis != axis) { 
                 return;
             }
@@ -96,12 +101,18 @@ YUI.add('flickPanel', function (Y) {
             var flickAngle = Math.atan2(yMovement,flick.distance);
             flickAngle = parseInt(flickAngle*180/Math.PI);
             
-            /* debugging and tuning info
+            /** 
+             *  debugging and tuning info, please leave in place.
             if (!Y.one('#devConsole')) {
-                Y.one('#hd-wrap').append('<div id="devConsole" style="background:black;padding:10px;color: green;position:fixed;top: 42px;right: 0px;opacity:.5;border: 2px dashed green;">Dev console</div>');
+                Y.one('#hd-wrap').append('<div id="devConsole" style="background:black;padding:10px;color: green;position:fixed;top: 42px;right: 0px;opacity:.9;border: 2px dashed green;">Dev console</div>');
             }
-            Y.one('#devConsole').setContent(yMovement +'px : '+ flickAngle + 'deg'); 
-            */
+            Y.one('#devConsole').setContent(
+                'flick.distance: ' + flick.distance +'px<br />\
+                flick.start.clientY: ' + flick.start.clientY +'px<br />\
+                e._event.changedTouches[0].clientY: ' + e._event.changedTouches[0].clientY +'px<br />\
+                yMovement: ' + yMovement +'px<br />\
+                flickAngle:'+ flickAngle + 'deg'); 
+             */
 
             if (flickAngle <= 15) {
                 this._openPanel();
@@ -111,7 +122,7 @@ YUI.add('flickPanel', function (Y) {
             }
         },
 
-        _slidePanels: function (xPos,useTransition) {
+        _slidePanels: function (xPos, useTransition) {
             //Y.log('_slidePanels ' + xPos);
             this.flickPanelNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
             if (this.animateMain) { 
@@ -129,20 +140,33 @@ YUI.add('flickPanel', function (Y) {
 
         _openPanel: function () {
             this._slidePanels(this.flickPanelNode.get('offsetWidth'),true);
-            this.root.replaceClass(FlickPanelPlugin.CLOSED_CLASS,FlickPanelPlugin.OPEN_CLASS);
+            this.isOpen = true;
+            Y.fire("flickPanel.open", {});
         },
 
         _closePanel: function () {
             this._slidePanels(0,true);
-            this.root.replaceClass(FlickPanelPlugin.OPEN_CLASS,FlickPanelPlugin.CLOSED_CLASS);
+            this.isOpen = false;
+            Y.fire("flickPanel.close", {});
         },
         
         _toggle: function () {
-            if (this.root.hasClass(FlickPanelPlugin.CLOSED_CLASS)) {
-                this._openPanel();
+            // Toggle signal could be received even if this flickPanel is part of an 
+            // inactive or hidden component. If so, don't bother executing.
+            function isInactive (nd) {
+                return (nd.getComputedStyle('display') === 'none');
+            }
+            // test if flickPanel is inactive, either directly or via an inactive ancestor
+            if (this.flickPanelNode.ancestor(isInactive) || isInactive(this.flickPanelNode)) {
+                // do nothing
             }
             else {
-                this._closePanel();
+                if (!this.isOpen) {
+                    this._openPanel();
+                }
+                else {
+                    this._closePanel();
+                }
             }
         },
 
@@ -162,8 +186,8 @@ YUI.add('flickPanel', function (Y) {
         },
 
         _stopTracking: function (e) {
-            //Y.log('stop tracking');
-            //Y.log(e);
+            // any e.halt is unwelcome, but it prevents unintended click events from occurring as you release your finger from the drag
+            e.halt(); 
             
             /**
              *  What direction were we tracking in? It matters. If we're dragging to 
@@ -188,11 +212,21 @@ YUI.add('flickPanel', function (Y) {
             var fp = this.flickPanelNode,
                 yVal = this.yVal,
                 win = Y.config.win;
-            if (win.scrollY >= yVal) {
-                fp.setStyle('position','fixed');
-                fp.setStyle('height',win.innerHeight);
-            } else {
-                fp.setStyle('position','');
+            // iOS 4.x does not support position fixed
+            if (Y.UA.ios && Y.UA.ios < 5) {
+                if (win.scrollY >= yVal) {
+                    fp.setStyle('top',(win.scrollY-this.yVal)+'px');
+                } else {
+                    fp.setStyle('top','');
+                }
+            }
+            // iOS5+ and desktop webkit support position: fixed
+            else {
+                if (win.scrollY >= yVal) {
+                    fp.setStyle('position','fixed');
+                } else {
+                    fp.setStyle('position','');
+                }
             }
         }
     });
@@ -202,4 +236,3 @@ YUI.add('flickPanel', function (Y) {
 }, '1.0.0', {
     requires: ['node', 'event', 'event-flick', 'event-move', 'plugin']
 });
-
