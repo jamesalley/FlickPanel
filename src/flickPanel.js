@@ -227,6 +227,6 @@ YUI.add('flickPanel', function (Y) {
 
     Y.FlickPanelPlugin = FlickPanelPlugin;
 
-}, '1.0.0', {
+}, '1.0.1', {
     requires: ['node', 'event', 'event-flick', 'event-move', 'plugin']
 });
