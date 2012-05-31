@@ -1,4 +1,6 @@
 YUI.add('flickPanel', function (Y) {
+    'use strict';
+
     /**
      *  Plug this into a page where you have a flickPanel and a main area,
      *  and you want to be able to flick the flickPanel out of the way.
@@ -10,15 +12,15 @@ YUI.add('flickPanel', function (Y) {
 
     FlickPanelPlugin.NAME = 'FlickPanelPlugin';
     FlickPanelPlugin.NS = 'FlickPanel';
-    FlickPanelPlugin.OPEN_CLASS = 'flickPanel-open';
-    FlickPanelPlugin.CLOSED_CLASS = 'flickPanel-closed';
     FlickPanelPlugin.PULL_TAB_MARKUP = '<div class="pullTab"><div class="gripper">Pull-tab</div></div>';
+    FlickPanelPlugin.WINDOW_CHANGE_EVENT = (Y.config.win.hasOwnProperty('onorientationchange')) ? 'orientationchange' : 'resize';
     FlickPanelPlugin.ATTRS = {
     };
 
     Y.extend(FlickPanelPlugin, Y.Plugin.Base, {
         initializer: function (config) {
-            this.deviceSupportsTouch = ("ontouchstart" in Y.config.win && !Y.UA.chrome);
+            this.isOpen = false;
+            this.deviceSupportsTouch = (Y.config.win.hasOwnProperty('ontouchstart'));
             // typically the body element
             this.root = config.root || this.get('host');
             this.animateMain = config.animateMain || false;
@@ -39,52 +41,66 @@ YUI.add('flickPanel', function (Y) {
                 this.pullTab.on('gesturemove', this._track, this, this);
                 this.pullTab.on('gesturemoveend', this._stopTracking, this, this);
             }
-            else {
-                this.pullTab.on('click', this._toggle, this, this);
-            }
-            
+
             // also listen for a page flick
             if (this.animateMain) {
                 this.root.on('flick', this._onFlick, '', this);
             }
-            
+
             // slide into adjusted position on orientation change
-            this.WINDOW_CHANGE_EVENT = ('onorientationchange' in Y.config.win) ? 'orientationchange' : 'resize';
-            Y.on(this.WINDOW_CHANGE_EVENT, this._windowChange, Y.config.win, this);
-            
+            this.windowListener_1 = Y.on(FlickPanelPlugin.WINDOW_CHANGE_EVENT, this._windowChange, Y.config.win, this);
+
             // flickPanel may change positioning model as page scrolls
-            Y.on('touchmove', this._flickPanelScrollStop, Y.config.win, this);
-            Y.on('scroll', this._flickPanelScrollStop, Y.config.win, this);
+            this.windowListener_2 = Y.on('touchmove', this._flickPanelScrollStop, Y.config.win, this);
+            this.windowListener_3 = Y.on('scroll', this._flickPanelScrollStop, Y.config.win, this);
+
+            // extra listener for toggle affordance
+            this.windowListener_4 = Y.on('flickPanel.toggle.click', this._toggle, this);
 
         },
 
-        destructor: function () {},
+        destructor: function () {
+            this.pullTab.remove();
+            this._closePanel();
+            this.pullTab.detach();
+            this.root.detach('flick', this._onFlick);
+            this.windowListener_1.detach();
+            this.windowListener_2.detach();
+            this.windowListener_3.detach();
+            this.windowListener_4.detach();
+            this.flickPanelNode.style = '';
+        },
 
         _windowChange: function () {
-            /** 
+            /**
              *  Window change can cause dimension and positioning changes
              *  which necessitate repositioning the flickPanel.
              *  If it's open, pop it to correct open position, otherwise close.
              */
-            if (this.root.hasClass(FlickPanelPlugin.OPEN_CLASS)) {
-                this._slidePanels(this.flickPanelNode.get('offsetWidth'),false);
-            }
-            else {
-                this._slidePanels(0,false);
+            if (this.isOpen) {
+                this._slidePanels(this.flickPanelNode.get('offsetWidth'), false);
+            } else {
+                this._slidePanels(0, false);
             }
         },
 
         _onFlick: function (e) {
+            // Don't respond to flick events percolating through certain components
+            // TO DO: pull this out and put it into conf so that FlickPanel
+            // remains clean and generalized
+            if (e.target.ancestor('.yui3-scrollview-horiz')) {
+                return;
+            }
             // get the raw event data in order to determine angle of flick
-            // event-flick only determines angles >45deg, dividing them into 
+            // event-flick only determines angles >45deg, dividing them into
             // "x" and "y" axes
             var flick = e.flick,
+                flickAngle,
                 minDistance = 20,
-                minVelocity = 0.8,
-                preventDefault = false,
+                minVelocity = 0.1,
                 axis = 'x',
-                yMovement = (e._event.changedTouches) ? Math.abs(e._event.changedTouches[0].pageY - flick.start.pageY) : Math.abs(e.pageY - flick.start.pageY);
-            if (Math.abs(flick.distance) < minDistance || Math.abs(flick.velocity) < minVelocity || flick.axis != axis) { 
+                yMovement = (e._event.changedTouches) ? Math.abs(e._event.changedTouches[0].clientY - flick.start.clientY) : Math.abs(e.pageY - flick.start.pageY);
+            if (Math.abs(flick.distance) < minDistance || Math.abs(flick.velocity) < minVelocity || flick.axis !== axis) {
                 return;
             }
             // the angle can be computed using Tangent: tan(θ) = Opposite / Adjacent
@@ -93,34 +109,38 @@ YUI.add('flickPanel', function (Y) {
             // flickAngle = tan(-1) yMovement/flick.distance;
             // flickAngle = Math.atan(yMovement/flick.distance);
             // var flickAngle = Math.atan(yMovement/flick.distance);
-            var flickAngle = Math.atan2(yMovement,flick.distance);
-            flickAngle = parseInt(flickAngle*180/Math.PI);
-            
-            /* debugging and tuning info
-            if (!Y.one('#devConsole')) {
-                Y.one('#hd-wrap').append('<div id="devConsole" style="background:black;padding:10px;color: green;position:fixed;top: 42px;right: 0px;opacity:.5;border: 2px dashed green;">Dev console</div>');
-            }
-            Y.one('#devConsole').setContent(yMovement +'px : '+ flickAngle + 'deg'); 
-            */
+            flickAngle = Math.atan2(yMovement, flick.distance);
+            flickAngle = parseInt(flickAngle * 180 / Math.PI, 10);
+
+            /**
+             *  debugging and tuning info, please leave in place.
+             */
+            // if (!Y.one('#devConsole')) {
+            //     Y.one('#hd-wrap').append('<div id="devConsole" style="background:black;padding:10px;color: green;position:fixed;top: 42px;right: 0px;opacity:.9;border: 2px dashed green;">Dev console</div>');
+            // }
+            // Y.one('#devConsole').setContent(
+            //     'flick.distance: ' + flick.distance +'px<br />\
+            //     flick.start.clientY: ' + flick.start.clientY +'px<br />\
+            //     e._event.changedTouches[0].clientY: ' + e._event.changedTouches[0].clientY +'px<br />\
+            //     yMovement: ' + yMovement +'px<br />\
+            //     flickAngle:'+ flickAngle + 'deg');
 
             if (flickAngle <= 15) {
                 this._openPanel();
-            }
-            else if (flickAngle >= 165 && flickAngle <=180) {
+            } else if (flickAngle >= 165 && flickAngle <= 180) {
                 this._closePanel();
             }
         },
 
-        _slidePanels: function (xPos,useTransition) {
-            //Y.log('_slidePanels ' + xPos);
+        _slidePanels: function (xPos, useTransition) {
             this.flickPanelNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
-            if (this.animateMain) { 
+            if (this.animateMain) {
                 this.mainNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
             }
             if (useTransition) {
                 this.flickPanelNode.setStyle('-webkit-transition', '-webkit-transform ease-out .25s');
                 this.mainNode.setStyle('-webkit-transition', '-webkit-transform ease-out .25s');
-                Y.later(300, this, function (){
+                Y.later(300, this, function () {
                     this.flickPanelNode.setStyle('-webkit-transition', '');
                     this.mainNode.setStyle('-webkit-transition', '');
                 }, null);
@@ -128,57 +148,56 @@ YUI.add('flickPanel', function (Y) {
         },
 
         _openPanel: function () {
-            this._slidePanels(this.flickPanelNode.get('offsetWidth'),true);
-            this.root.replaceClass(FlickPanelPlugin.CLOSED_CLASS,FlickPanelPlugin.OPEN_CLASS);
+            this._slidePanels(parseInt(this.flickPanelNode.getComputedStyle('width'), 10), true);
+            this.isOpen = true;
+            Y.fire('flickPanel.open', {});
         },
 
         _closePanel: function () {
-            this._slidePanels(0,true);
-            this.root.replaceClass(FlickPanelPlugin.OPEN_CLASS,FlickPanelPlugin.CLOSED_CLASS);
+            this._slidePanels(0, true);
+            this.isOpen = false;
+            Y.fire('flickPanel.close', {});
         },
-        
+
         _toggle: function () {
-            if (this.root.hasClass(FlickPanelPlugin.CLOSED_CLASS)) {
-                this._openPanel();
-            }
-            else {
-                this._closePanel();
+            // test if flickPanel is displayed and actionable
+            if (this.flickPanelNode.get('clientWidth') !== 0) {
+                if (!this.isOpen) {
+                    this._openPanel();
+                } else {
+                    this._closePanel();
+                }
             }
         },
 
         _track: function (e) {
-            //Y.log(e);
             if (this.xPos < e.pageX) {
                 this.trackingDirection = 'opening';
-            }
-            else {
+            } else {
                 this.trackingDirection = 'closing';
             }
             this.xPos = e.pageX;
-            Y.log(this.xPos + ' : ' + this.flickPanelNode.get('offsetWidth'));
             if (this.xPos > 0 && this.xPos < this.flickPanelNode.get('offsetWidth')) {
                 this._slidePanels(this.xPos);
             }
         },
 
         _stopTracking: function (e) {
-            //Y.log('stop tracking');
-            //Y.log(e);
-            
+            // any e.halt is unwelcome, but it prevents unintended click events from occurring as you release your finger from the drag
+            e.halt();
             /**
-             *  What direction were we tracking in? It matters. If we're dragging to 
-             *  the right, we want to open by default if we're past the minThreshold. 
-             *  If we're swiping to the left, we want to close by default if we're 
+             *  What direction were we tracking in? It matters. If we're dragging to
+             *  the right, we want to open by default if we're past the minThreshold.
+             *  If we're swiping to the left, we want to close by default if we're
              *  past the maxThreshold.
              */
-            var flickPanelWidth = this.flickPanelNode.get('offsetWidth');
+            var flickPanelWidth = this.flickPanelNode.get('offsetWidth'),
+                minThreshold = Math.round(flickPanelWidth / 3),
+                maxThreshold = flickPanelWidth - 22;
             this.xPos = e.pageX;
-            var minThreshold = Math.round(flickPanelWidth/3),
-                maxThreshold = flickPanelWidth-22;
             if ((this.trackingDirection === 'opening' && this.xPos > minThreshold) || this.xPos > maxThreshold) {
                 this._openPanel();
-            }
-            else {
+            } else {
                 this._closePanel();
             }
         },
@@ -188,18 +207,26 @@ YUI.add('flickPanel', function (Y) {
             var fp = this.flickPanelNode,
                 yVal = this.yVal,
                 win = Y.config.win;
-            if (win.scrollY >= yVal) {
-                fp.setStyle('position','fixed');
-                fp.setStyle('height',win.innerHeight);
+            // iOS 4.x does not support position fixed
+            // iOS5+ and desktop webkit support position: fixed
+            if (Y.UA.ios && Y.UA.ios < 5) {
+                if (win.scrollY >= yVal) {
+                    fp.setStyle('top', (win.scrollY - this.yVal) + 'px');
+                } else {
+                    fp.setStyle('top', '');
+                }
             } else {
-                fp.setStyle('position','');
+                if (win.scrollY >= yVal) {
+                    fp.setStyle('position', 'fixed');
+                } else {
+                    fp.setStyle('position', '');
+                }
             }
         }
     });
 
     Y.FlickPanelPlugin = FlickPanelPlugin;
 
-}, '1.0.0', {
+}, '1.0.1', {
     requires: ['node', 'event', 'event-flick', 'event-move', 'plugin']
 });
-
