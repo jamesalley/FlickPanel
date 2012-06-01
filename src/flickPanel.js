@@ -14,6 +14,8 @@ YUI.add('flickPanel', function (Y) {
     FlickPanelPlugin.NS = 'FlickPanel';
     FlickPanelPlugin.PULL_TAB_MARKUP = '<div class="pullTab"><div class="gripper">Pull-tab</div></div>';
     FlickPanelPlugin.WINDOW_CHANGE_EVENT = (Y.config.win.hasOwnProperty('onorientationchange')) ? 'orientationchange' : 'resize';
+    // TO DO: consider adding in vendor prefix dynamically for better backwards compatibility
+    FlickPanelPlugin.VENDOR_PREFIX = '';
     FlickPanelPlugin.ATTRS = {
     };
 
@@ -88,7 +90,7 @@ YUI.add('flickPanel', function (Y) {
             // Don't respond to flick events percolating through certain components
             // TO DO: pull this out and put it into conf so that FlickPanel
             // remains clean and generalized
-            if (e.target.ancestor('.yui3-scrollview-horiz')) {
+            if (e.target.ancestor('.yui3-scrollview-horiz') || e.target.ancestor('.yui3-carousel')) {
                 return;
             }
             // get the raw event data in order to determine angle of flick
@@ -133,17 +135,14 @@ YUI.add('flickPanel', function (Y) {
         },
 
         _slidePanels: function (xPos, useTransition) {
-            this.flickPanelNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
+            var prefix = FlickPanelPlugin.VENDOR_PREFIX;
+            this.flickPanelNode.setStyle(prefix + 'transform', 'translate3d(' + xPos + 'px,0,0)');
             if (this.animateMain) {
-                this.mainNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
+                this.mainNode.setStyle(prefix + 'transform', 'translate3d(' + xPos + 'px,0,0)');
             }
             if (useTransition) {
-                this.flickPanelNode.setStyle('-webkit-transition', '-webkit-transform ease-out .25s');
-                this.mainNode.setStyle('-webkit-transition', '-webkit-transform ease-out .25s');
-                Y.later(300, this, function () {
-                    this.flickPanelNode.setStyle('-webkit-transition', '');
-                    this.mainNode.setStyle('-webkit-transition', '');
-                }, null);
+                this.flickPanelNode.setStyle(prefix + 'transition', prefix + 'transform .25s ease-out ');
+                this.mainNode.setStyle(prefix + 'transition', prefix + 'transform .25s ease-out');
             }
         },
 
