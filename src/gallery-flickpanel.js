@@ -61,6 +61,7 @@ Y.extend(FlickPanelPlugin, Y.Plugin.Base, {
     },
 
     destructor: function () {
+        this.flickPanelNode.setStyle('position','');
         this.pullTab.remove();
         this._closePanel();
         this.pullTab.detach();
@@ -69,7 +70,6 @@ Y.extend(FlickPanelPlugin, Y.Plugin.Base, {
         this.windowListener_2.detach();
         this.windowListener_3.detach();
         this.windowListener_4.detach();
-        this.flickPanelNode.style = '';
     },
 
     _windowChange: function () {
