@@ -13,14 +13,14 @@ YUI.add('flickPanel', function (Y) {
     FlickPanelPlugin.NAME = 'FlickPanelPlugin';
     FlickPanelPlugin.NS = 'FlickPanel';
     FlickPanelPlugin.PULL_TAB_MARKUP = '<div class="pullTab"><div class="gripper">Pull-tab</div></div>';
-    FlickPanelPlugin.WINDOW_CHANGE_EVENT = (Y.config.win.hasOwnProperty('onorientationchange')) ? 'orientationchange' : 'resize';
+    FlickPanelPlugin.WINDOW_CHANGE_EVENT = (Y.config.win.hasOwnProperty && Y.config.win.hasOwnProperty('onorientationchange')) ? 'orientationchange' : 'resize';
     FlickPanelPlugin.ATTRS = {
     };
 
     Y.extend(FlickPanelPlugin, Y.Plugin.Base, {
         initializer: function (config) {
             this.isOpen = false;
-            this.deviceSupportsTouch = (Y.config.win.hasOwnProperty('ontouchstart'));
+            this.deviceSupportsTouch = (Y.config.win.hasOwnProperty && Y.config.win.hasOwnProperty('ontouchstart'));
             // typically the body element
             this.root = config.root || this.get('host');
             this.animateMain = config.animateMain || false;
@@ -55,11 +55,12 @@ YUI.add('flickPanel', function (Y) {
             this.windowListener_3 = Y.on('scroll', this._flickPanelScrollStop, Y.config.win, this);
 
             // extra listener for toggle affordance
-            this.windowListener_4 = Y.on('flickPanel.toggle.click', this._toggle, this);
+            this.windowListener_4 = Y.on('flickpanel.toggle.click', this._toggle, this);
 
         },
 
         destructor: function () {
+            this.flickPanelNode.setStyle('position', '');
             this.pullTab.remove();
             this._closePanel();
             this.pullTab.detach();
@@ -68,7 +69,6 @@ YUI.add('flickPanel', function (Y) {
             this.windowListener_2.detach();
             this.windowListener_3.detach();
             this.windowListener_4.detach();
-            this.flickPanelNode.style = '';
         },
 
         _windowChange: function () {
@@ -88,7 +88,7 @@ YUI.add('flickPanel', function (Y) {
             // Don't respond to flick events percolating through certain components
             // TO DO: pull this out and put it into conf so that FlickPanel
             // remains clean and generalized
-            if (e.target.ancestor('.yui3-scrollview-horiz')) {
+            if (e.target.ancestor('.yui3-scrollview-horiz') || e.target.ancestor('.yui3-carousel')) {
                 return;
             }
             // get the raw event data in order to determine angle of flick
@@ -133,30 +133,43 @@ YUI.add('flickPanel', function (Y) {
         },
 
         _slidePanels: function (xPos, useTransition) {
-            this.flickPanelNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
-            if (this.animateMain) {
-                this.mainNode.setStyle('-webkit-transform', 'translate3d(' + xPos + 'px,0,0)');
+            var prefix,
+                transitionProperty,
+                transformProperty;
+            if (Y.UA.webkit) {
+                prefix = '-webkit-';
+            } else if (Y.UA.gecko) {
+                prefix = '-moz-';
+            } else if (Y.UA.opera) {
+                prefix = '-o-';
+            } else if (Y.UA.ie) {
+                prefix = '-ms-';
+            } else {
+                prefix = '';
             }
+            transitionProperty = (Y.UA.gecko) ? 'MozTransition' : prefix + 'transition';
+            transformProperty = (Y.UA.gecko) ? 'MozTransform' : prefix + 'transform';
             if (useTransition) {
-                this.flickPanelNode.setStyle('-webkit-transition', '-webkit-transform ease-out .25s');
-                this.mainNode.setStyle('-webkit-transition', '-webkit-transform ease-out .25s');
-                Y.later(300, this, function () {
-                    this.flickPanelNode.setStyle('-webkit-transition', '');
-                    this.mainNode.setStyle('-webkit-transition', '');
-                }, null);
+                this.flickPanelNode.setStyle(transitionProperty, prefix + 'transform .25s ease-out');
+                this.mainNode.setStyle(transitionProperty, prefix + 'transform .25s ease-out');
             }
+            if (this.animateMain) {
+                this.mainNode.setStyle(transformProperty, 'translateX(' + xPos + 'px)');
+            }
+            this.flickPanelNode.setStyle(transformProperty, 'translateX(' + xPos + 'px)');
         },
 
         _openPanel: function () {
-            this._slidePanels(parseInt(this.flickPanelNode.getComputedStyle('width'), 10), true);
+            var offsetWidth = this.flickPanelNode.get('offsetWidth');
+            this._slidePanels(parseInt(offsetWidth, 10), true);
             this.isOpen = true;
-            Y.fire('flickPanel.open', {});
+            Y.fire('flickpanel.open', {});
         },
 
         _closePanel: function () {
             this._slidePanels(0, true);
             this.isOpen = false;
-            Y.fire('flickPanel.close', {});
+            Y.fire('flickpanel.close', {});
         },
 
         _toggle: function () {
