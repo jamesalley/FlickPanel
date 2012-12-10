@@ -34,6 +34,8 @@ YUI.add('gallery-flickpanel', function (Y) {
             this.trackingDirection = null;
             this.flickPanelNode.append(FlickPanelPlugin.PULL_TAB_MARKUP);
             this.pullTab = this.root.one('.pullTab');
+            this.supportsPositionFixed = this._supportsPositionFixed();
+            this.edge = config.edge || 'w'; // N-S-E-W edges of the screen
 
             // flickPanel tracks along with input
             // also triggers toggle at end of input, so a click will also initiate toggle
@@ -43,20 +45,32 @@ YUI.add('gallery-flickpanel', function (Y) {
                 this.pullTab.on('gesturemoveend', this._stopTracking, this, this);
             }
 
-            // also listen for a page flick
-            if (this.animateMain) {
-                this.root.on('flick', this._onFlick, '', this);
+            // Also listen for a page flick
+            // Prevent on Android until we can get a good position:fixed solution in place for Android.
+            // Otherwise, the user could flick open the panel while at the bottom of the page and see
+            // an empty panel and wonder what is going on.
+            if (this.animateMain && !Y.UA.android) {
+                this.root.on('flick', this._onFlick, {
+                    minDistance: 40,
+                    minVelocity: 0,
+                    preventDefault: false
+                }, this);
             }
 
             // slide into adjusted position on orientation change
             this.windowListener_1 = Y.on(FlickPanelPlugin.WINDOW_CHANGE_EVENT, this._windowChange, Y.config.win, this);
 
             // flickPanel may change positioning model as page scrolls
-            this.windowListener_2 = Y.on('touchmove', this._flickPanelScrollStop, Y.config.win, this);
-            this.windowListener_3 = Y.on('scroll', this._flickPanelScrollStop, Y.config.win, this);
+            // Buggy on Android due to inconsistent touch event handling, so block it.
+            if (!Y.UA.android) {
+                this.windowListener_2 = Y.after('touchmove', this._handleWindowScroll, Y.config.win, this);
+                this.windowListener_3 = Y.after('scroll', this._handleWindowScroll, Y.config.win, this);
+            }
 
-            // extra listener for toggle affordance
+            // API listeners
             this.windowListener_4 = Y.on('flickpanel.toggle.click', this._toggle, this);
+            this.windowListener_5 = Y.on('flickpanel.do.open', this._openPanel, this);
+            this.windowListener_6 = Y.on('flickpanel.do.close', this._closePanel, this);
 
         },
 
@@ -70,6 +84,8 @@ YUI.add('gallery-flickpanel', function (Y) {
             this.windowListener_2.detach();
             this.windowListener_3.detach();
             this.windowListener_4.detach();
+            this.windowListener_5.detach();
+            this.windowListener_6.detach();
         },
 
         _windowChange: function () {
@@ -86,30 +102,33 @@ YUI.add('gallery-flickpanel', function (Y) {
         },
 
         _onFlick: function (e) {
+            var flick = e.flick,
+                flickAngle,
+                initialTarget = e.flick.start.target,
+                yMovement;
+
             // Don't respond to flick events percolating through certain components
             // TO DO: pull this out and put it into conf so that FlickPanel
             // remains clean and generalized
-            if (e.target.ancestor('.yui3-scrollview-horiz') || e.target.ancestor('.yui3-carousel')) {
+            if (initialTarget.ancestor('.yui3-scrollview-horiz') ||
+                    initialTarget.hasClass('yui3-scrollview-horiz') ||
+                    initialTarget.ancestor('.ignore-flicks') ||
+                    initialTarget.hasClass('ignore-flicks')) {
                 return;
             }
-            // get the raw event data in order to determine angle of flick
-            // event-flick only determines angles >45deg, dividing them into
-            // "x" and "y" axes
-            var flick = e.flick,
-                flickAngle,
-                minDistance = 20,
-                minVelocity = 0.1,
-                axis = 'x',
-                yMovement = (e._event.changedTouches) ? Math.abs(e._event.changedTouches[0].clientY - flick.start.clientY) : Math.abs(e.pageY - flick.start.pageY);
-            if (Math.abs(flick.distance) < minDistance || Math.abs(flick.velocity) < minVelocity || flick.axis !== axis) {
-                return;
-            }
-            // the angle can be computed using Tangent: tan(θ) = Opposite / Adjacent
-            // i.e., θ = tan (-1) Opposite/Adjacent;
-            // tan(flickAngle) = yMovement/flick.distance;
-            // flickAngle = tan(-1) yMovement/flick.distance;
-            // flickAngle = Math.atan(yMovement/flick.distance);
-            // var flickAngle = Math.atan(yMovement/flick.distance);
+
+            // Get the raw event data in order to determine angle of flick.
+            // The event-flick module only determines angles >45deg,
+            // dividing them into "x" and "y" axes. We need better.
+            yMovement = (e._event.changedTouches) ?
+                    Math.abs(e._event.changedTouches[0].clientY - flick.start.clientY) :
+                    Math.abs(e.pageY - flick.start.pageY);
+
+            // the angle can be computed using Tangent:
+            // tan(θ) = Opposite / Adjacent
+            // tan(flickAngle) = yMovement/flick.distance
+            // flickAngle = tan(-1) yMovement/flick.distance
+            // flickAngle = Math.atan(yMovement/flick.distance)
             flickAngle = Math.atan2(yMovement, flick.distance);
             flickAngle = parseInt(flickAngle * 180 / Math.PI, 10);
 
@@ -126,17 +145,27 @@ YUI.add('gallery-flickpanel', function (Y) {
             //     yMovement: ' + yMovement +'px<br />\
             //     flickAngle:'+ flickAngle + 'deg');
 
-            if (flickAngle <= 15) {
-                this._openPanel();
-            } else if (flickAngle >= 165 && flickAngle <= 180) {
-                this._closePanel();
+            if (this.edge === 'w') {
+                if (flickAngle <= 15) {
+                    this._openPanel();
+                } else if (flickAngle >= 165 && flickAngle <= 180) {
+                    this._closePanel();
+                }
+            } else if (this.edge === 'e') {
+                if (flickAngle <= 15) {
+                    this._closePanel();
+                } else if (flickAngle >= 165 && flickAngle <= 180) {
+                    this._openPanel();
+                }
             }
+
         },
 
         _slidePanels: function (xPos, useTransition) {
             var prefix,
                 transitionProperty,
                 transformProperty;
+
             if (Y.UA.webkit) {
                 prefix = '-webkit-';
             } else if (Y.UA.gecko) {
@@ -148,29 +177,44 @@ YUI.add('gallery-flickpanel', function (Y) {
             } else {
                 prefix = '';
             }
+
             transitionProperty = (Y.UA.gecko) ? 'MozTransition' : prefix + 'transition';
             transformProperty = (Y.UA.gecko) ? 'MozTransform' : prefix + 'transform';
+
             if (useTransition) {
                 this.flickPanelNode.setStyle(transitionProperty, prefix + 'transform .25s ease-out');
                 this.mainNode.setStyle(transitionProperty, prefix + 'transform .25s ease-out');
             }
+
             if (this.animateMain) {
                 this.mainNode.setStyle(transformProperty, 'translateX(' + xPos + 'px)');
             }
+
             this.flickPanelNode.setStyle(transformProperty, 'translateX(' + xPos + 'px)');
         },
 
         _openPanel: function () {
-            var offsetWidth = this.flickPanelNode.get('offsetWidth');
-            this._slidePanels(parseInt(offsetWidth, 10), true);
+            var movement,
+                offsetWidth = this.flickPanelNode.get('offsetWidth');
+            if (this.edge === 'e' || this.edge === 's') {
+                movement = offsetWidth * -1;
+            } else {
+                movement = offsetWidth;
+            }
+            this._slidePanels(parseInt(movement, 10), true);
             this.isOpen = true;
-            Y.fire('flickpanel.open', {});
+            Y.fire('flickpanel.did.open', {});
         },
 
-        _closePanel: function () {
-            this._slidePanels(0, true);
-            this.isOpen = false;
-            Y.fire('flickpanel.close', {});
+        _closePanel: function (useTransition) {
+            if (this.isOpen === true) {
+                if (useTransition === undefined) {
+                    useTransition = true;
+                }
+                this._slidePanels(0, useTransition);
+                this.isOpen = false;
+                Y.fire('flickpanel.did.close', {});
+            }
         },
 
         _toggle: function () {
@@ -208,7 +252,9 @@ YUI.add('gallery-flickpanel', function (Y) {
             var flickPanelWidth = this.flickPanelNode.get('offsetWidth'),
                 minThreshold = Math.round(flickPanelWidth / 3),
                 maxThreshold = flickPanelWidth - 22;
+
             this.xPos = e.pageX;
+
             if ((this.trackingDirection === 'opening' && this.xPos > minThreshold) || this.xPos > maxThreshold) {
                 this._openPanel();
             } else {
@@ -216,24 +262,69 @@ YUI.add('gallery-flickpanel', function (Y) {
             }
         },
 
-        _flickPanelScrollStop: function () {
+        _supportsPositionFixed: function () {
+            var container = document.body,
+                el = document.createElement('div'),
+                originalHeight,
+                originalScrollTop,
+                elementTop,
+                isSupported;
+
+            if (Y.UA.ios && Y.UA.ios >= 5) {
+                // all iOS 5 and up support it
+                return true;
+            }
+
+            if (Y.UA.android) {
+                // Android implementations are buggy as hell right now
+                // For instance, on Android 4.x, Chrome accordions the content when rendered, while Browser does great!
+                // On older Androids, like Nexus One, the div disappears when it goes into fixed pos mode,
+                // even though it supports position fixed.
+                return false;
+            }
+
+            if (document.createElement && container && container.appendChild && container.removeChild) {
+                if (!el.getBoundingClientRect) {
+                    return null;
+                }
+                el.innerHTML = 'x';
+                el.style.cssText = 'position:fixed;top:100px;';
+                container.appendChild(el);
+                originalHeight = container.style.height;
+                originalScrollTop = container.scrollTop;
+                container.style.height = '3000px';
+                container.scrollTop = 500;
+                elementTop = el.getBoundingClientRect().top;
+                container.style.height = originalHeight;
+                isSupported = elementTop === 100;
+                container.removeChild(el);
+                container.scrollTop = originalScrollTop;
+                return isSupported;
+            }
+
+            return null;
+        },
+
+        _handleWindowScroll: function () {
             // locks the panel to the top of the screen when scrolling vertically
             var fp = this.flickPanelNode,
                 yVal = this.yVal,
-                win = Y.config.win;
-            // iOS 4.x does not support position fixed
-            // iOS5+ and desktop webkit support position: fixed
-            if (Y.UA.ios && Y.UA.ios < 5) {
-                if (win.scrollY >= yVal) {
-                    fp.setStyle('top', (win.scrollY - this.yVal) + 'px');
-                } else {
-                    fp.setStyle('top', '');
-                }
-            } else {
+                win = Y.config.win,
+                supportsPositionFixed = this.supportsPositionFixed;
+
+            if (supportsPositionFixed) {
+                // switch to position fixed
                 if (win.scrollY >= yVal) {
                     fp.setStyle('position', 'fixed');
                 } else {
                     fp.setStyle('position', '');
+                }
+            } else {
+                // use javascript sticky
+                if (win.scrollY >= yVal) {
+                    fp.setStyle('top', (win.scrollY - this.yVal) + 'px');
+                } else {
+                    fp.setStyle('top', '');
                 }
             }
         }
@@ -241,4 +332,13 @@ YUI.add('gallery-flickpanel', function (Y) {
 
     Y.FlickPanelPlugin = FlickPanelPlugin;
 
-}, '1.0.2', {skinnable: false, requires: ['node', 'event', 'event-flick', 'event-move', 'plugin']});
+}, '1.0.2', {
+    skinnable: false,
+    requires: [
+        'node',
+        'event',
+        'event-flick',
+        'event-move',
+        'plugin'
+    ]
+});
